@@ -27,10 +27,13 @@ object GoogleStt {
      * [onListening] runs once (main thread) when the mic really hears: "ready" comes ~1–2 s before Google's
      * recognizer takes in sound, so a beep at "ready" (or before starting) made 달묘's first words get cut.
      * It waits for the mic level to start moving, at least [minMs] after ready and at most 4 s.
+     * The beep also waits until [beepFloorMs] from the start: the milestone alone jittered by over a
+     * second between sessions, so a fixed floor gives the speaker a steady rhythm — the milestone can
+     * only push the beep later, never earlier (boss's call, field night 2026-11-03→04).
      * Google's own start/end sounds (notification stream) are muted meanwhile, so only our beep is heard.
      */
-    fun listen(ctx: Context, timeoutMs: Long = 15_000, minMs: Long = 400, onListening: () -> Unit = {},
-               abort: () -> Boolean = { false }): Result {
+    fun listen(ctx: Context, timeoutMs: Long = 15_000, minMs: Long = 400, beepFloorMs: Long = 2_000,
+               onListening: () -> Unit = {}, abort: () -> Boolean = { false }): Result {
         val main = Handler(Looper.getMainLooper())
         val done = CountDownLatch(1)
         var out = Result(emptyList(), null, SpeechRecognizer.ERROR_SPEECH_TIMEOUT)
@@ -64,7 +67,7 @@ object GoogleStt {
                         if (firstRms == null) { firstRms = rmsdB; return }
                         if (rmsdB == firstRms) return
                         level = System.currentTimeMillis() - t0
-                        val wait = minMs - (level - ready)
+                        val wait = maxOf(minMs - (level - ready), beepFloorMs - level)
                         if (wait > 0) main.postDelayed({ go() }, wait) else go()
                     }
                     override fun onBufferReceived(buffer: ByteArray?) {}

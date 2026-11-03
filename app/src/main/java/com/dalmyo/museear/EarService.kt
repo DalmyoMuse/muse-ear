@@ -19,6 +19,7 @@ import android.media.audiofx.NoiseSuppressor
 import android.net.wifi.WifiManager
 import android.os.IBinder
 import android.os.PowerManager
+import android.speech.SpeechRecognizer
 import java.io.ByteArrayOutputStream
 import kotlin.concurrent.thread
 import kotlin.math.log10
@@ -320,6 +321,8 @@ class EarService : Service() {
 
     /**
      * One request with the phone's recognizer (Settings.googleStt), on the mic loop's thread while the mic is closed.
+     * Retries are off (GOOGLE_RETRY_MAX = 0): the field test (2026-11-04) showed an instant re-listen
+     * fights the speaker's own rhythm — speech started before the retry beep and lost its first word.
      * The Muse gets the best guess plus up to two other candidates, so it can pick by context
      * ("음악 틀어줘" heard while music is playing, with "음악 꺼줘" as a candidate).
      */
@@ -330,17 +333,27 @@ class EarService : Service() {
             // Let any earlier beep end first (echoUntil is its end + 600 ms), or the recognizer starts on it.
             val wait = Beeper.echoUntil - 400 - System.currentTimeMillis()
             if (wait > 0) Thread.sleep(wait)
-            val t = System.currentTimeMillis()
             // As in voice-relay mode: if the phone starts playing (usually the Muse answering an earlier question),
             // the recognizer would hear the Muse and send its words back to it. The playback gate is off only for
             // adb self-tests (SET --ez test_audio true), which play the test phrase through the phone itself.
             val am = getSystemService(AudioManager::class.java)
+            var attempt = 0
+            while (true) {
+            attempt++
+            val t = System.currentTimeMillis()
             val r = GoogleStt.listen(this, onListening = { Beeper.play(Beeper.LISTEN) }) {
                 !Ear.testAudio && System.currentTimeMillis() >= Beeper.echoUntil && am.isMusicActive
             }
             val ms = System.currentTimeMillis() - t
             Ear.log("구글 시간: 준비 ${GoogleStt.ready} · 소리 ${GoogleStt.level} · 삑 ${GoogleStt.beeped} · " +
                 "말 시작 ${GoogleStt.begin} · 말 끝 ${GoogleStt.end} · 결과 ${ms}ms")
+            val retryable = r.error == null || r.error == SpeechRecognizer.ERROR_NO_MATCH ||
+                r.error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
+            if ((r.error != null || r.texts.none { it.isNotBlank() }) && retryable && attempt <= GOOGLE_RETRY_MAX) {
+                Ear.log("구글 재청취 $attempt/$GOOGLE_RETRY_MAX")
+                Thread.sleep(300)
+                continue
+            }
             r.error?.let { e ->
                 Ear.log("구글 받아쓰기 실패: ${GoogleStt.why(e)} (${ms}ms)")
                 if (e != GoogleStt.ABORTED) Beeper.play(Beeper.FAIL)
@@ -363,6 +376,8 @@ class EarService : Service() {
                 try { deliver(msg) } finally { busy = false; Ear.state = "대기" }
             }
             sent = true
+            break
+            }
         } catch (e: Exception) {
             Ear.log("구글 받아쓰기 오류: ${e.javaClass.simpleName}")
         } finally {
@@ -428,6 +443,7 @@ class EarService : Service() {
         private const val CAPTURE_CHUNKS = 38       // 38 × 80 ms ≈ 3 s before a wake hit, for the capture mode
         private const val VOICE_DB = 12.0                 // speech while recording: this far above the room (panel's value)
         private const val MIN_VOICE_DB = 5.0              // ...lowered down to this for a quiet call
+        private const val GOOGLE_RETRY_MAX = 0            // field test: instant re-listens clipped first words; off
 
         fun start(ctx: Context) = ctx.startForegroundService(Intent(ctx, EarService::class.java))
         fun stop(ctx: Context) = ctx.startService(Intent(ctx, EarService::class.java).setAction(ACTION_STOP))
