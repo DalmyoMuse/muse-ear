@@ -1,5 +1,6 @@
 package com.dalmyo.museear
 
+import android.content.ComponentName
 import android.content.Context
 import android.util.Log
 import java.text.SimpleDateFormat
@@ -21,7 +22,18 @@ data class Settings(
     // 5–7 chunks in the 10-18…10-20 captures; false wakes (TV, music, "가즈아", "미용") held 1–2.
     val hold: Int = HOLD,
     val googleStt: Boolean = false,   // speech to text with the phone's recognizer (GoogleStt) instead of voice-relay /stt
+    // Which recognizer GoogleStt asks for: "" = the system default service; "gapp" = the Google app's own
+    // service named directly. The XCover5 refuses the Google app service as the system default
+    // ("not RecognitionService"), yet the component is declared and the Note 9 runs on it. It sends no
+    // ready signal, which stopped mattering when the prompt went wall-clock in 0.5.
+    val recognizer: String = "",
 ) {
+    fun recognizerComponent(): ComponentName? = when (recognizer) {
+        "gapp" -> ComponentName("com.google.android.googlequicksearchbox",
+            "com.google.android.voicesearch.serviceapi.GoogleRecognitionService")
+        else -> null
+    }
+
     fun threshold(name: String): Float? = when {
         name.startsWith("hi_clio") -> meenaTh   // "하이 클리오"; the setting keeps its old key meena_th
         name.startsWith("hey_jarvis") -> if (jarvis) jarvisTh else null
@@ -60,6 +72,7 @@ data class Settings(
                 capture = p.getBoolean("capture", false),
                 hold = p.getInt("hold", HOLD),
                 googleStt = p.getBoolean("google_stt", false),
+                recognizer = p.getString("recognizer", "")!!,
             )
         }
 
@@ -68,7 +81,7 @@ data class Settings(
                 .putString("relay", s.relay).putFloat("meena_th", s.meenaTh).putBoolean("jarvis", s.jarvis)
                 .putFloat("silent_db", s.silentDb).putBoolean("enabled", s.enabled).putString("boot_app", s.bootApp)
                 .putFloat("jarvis_th", s.jarvisTh).putBoolean("capture", s.capture).putInt("hold", s.hold)
-                .putBoolean("google_stt", s.googleStt).apply()
+                .putBoolean("google_stt", s.googleStt).putString("recognizer", s.recognizer).apply()
             Ear.settings = s
         }
     }

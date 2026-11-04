@@ -55,7 +55,11 @@ object GoogleStt {
         fun finish(r: Result) { if (done.count > 0) { out = r; done.countDown() } }
         main.post {
             if (!SpeechRecognizer.isRecognitionAvailable(ctx)) { finish(Result(emptyList(), null, NOT_AVAILABLE)); return@post }
-            sr = SpeechRecognizer.createSpeechRecognizer(ctx).apply {
+            val comp = Ear.settings(ctx).recognizerComponent()
+            Ear.log("인식기: ${comp?.flattenToShortString() ?: "시스템 기본값"}")
+            sr = (if (comp != null && android.os.Build.VERSION.SDK_INT >= 31)
+                SpeechRecognizer.createSpeechRecognizer(ctx, comp)
+            else SpeechRecognizer.createSpeechRecognizer(ctx)).apply {
                 setRecognitionListener(object : RecognitionListener {
                     override fun onResults(b: Bundle) = finish(Result(
                         b.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION) ?: emptyList(),

@@ -21,6 +21,7 @@ import kotlin.concurrent.thread
  *     also --ez capture true (save ~3 s before each wake hit under files/wake/), --ez jarvis false, --ef jarvis_th 0.4, --ef silent_db 6, --ef meena_th 0.6,
  *     --ei hold 3 (chunks in a row over the threshold before a wake counts; 1 = at once),
  *     --ez google_stt true (the phone's recognizer instead of voice-relay /stt),
+ *     --es recognizer gapp (name the Google app recognition service directly; anything else = default),
  *     --ez test_audio true (self-test with a phrase played by the phone: no playback gate, nothing sent to the Muse; not saved)
  */
 class DebugReceiver : BroadcastReceiver() {
@@ -37,10 +38,11 @@ class DebugReceiver : BroadcastReceiver() {
                     jarvisTh = if (intent.hasExtra("jarvis_th")) intent.getFloatExtra("jarvis_th", s.jarvisTh) else s.jarvisTh,
                     capture = if (intent.hasExtra("capture")) intent.getBooleanExtra("capture", false) else s.capture,
                     hold = if (intent.hasExtra("hold")) intent.getIntExtra("hold", s.hold).coerceAtLeast(1) else s.hold,
-                    googleStt = if (intent.hasExtra("google_stt")) intent.getBooleanExtra("google_stt", false) else s.googleStt))
+                    googleStt = if (intent.hasExtra("google_stt")) intent.getBooleanExtra("google_stt", false) else s.googleStt,
+                    recognizer = intent.getStringExtra("recognizer") ?: s.recognizer))
                 if (intent.getBooleanExtra("boot_test", false)) BootLaunch.run(ctx.applicationContext, Ear.settings(ctx).bootApp)
                 val n = Ear.settings(ctx)
-                Ear.log("설정 변경(adb): ${n.relay}, ${if (on) "켬" else "끔"}, 문턱값 ${n.meenaTh}, 무음 기준 ${n.silentDb}dB, 자비스 ${if (n.jarvis) "켬 ${n.jarvisTh}" else "끔"}, 오작동 확인 ${if (n.capture) "켬" else "끔"}, 유지 ${n.hold}칸, 받아쓰기 ${if (n.googleStt) "구글" else "voice-relay"}")
+                Ear.log("설정 변경(adb): ${n.relay}, ${if (on) "켬" else "끔"}, 문턱값 ${n.meenaTh}, 무음 기준 ${n.silentDb}dB, 자비스 ${if (n.jarvis) "켬 ${n.jarvisTh}" else "끔"}, 오작동 확인 ${if (n.capture) "켬" else "끔"}, 유지 ${n.hold}칸, 받아쓰기 ${if (n.googleStt) "구글" else "voice-relay"}, 인식기 ${if (n.recognizer == "gapp") "구글앱" else "기본값"}")
                 if (intent.hasExtra("on")) { if (on) EarService.start(ctx) else EarService.stop(ctx) }
                 if (intent.hasExtra("test_audio")) Ear.testAudio = intent.getBooleanExtra("test_audio", false)
                 if (intent.getBooleanExtra("listen", false)) Ear.trigger.set(true)
