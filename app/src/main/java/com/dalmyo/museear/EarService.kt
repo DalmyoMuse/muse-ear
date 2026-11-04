@@ -341,11 +341,11 @@ class EarService : Service() {
             while (true) {
             attempt++
             val t = System.currentTimeMillis()
-            val r = GoogleStt.listen(this, onListening = { Beeper.play(Beeper.LISTEN) }) {
+            val r = GoogleStt.listen(this, onListening = {}, onPrompt = { Prompt.play(this) }) {
                 !Ear.testAudio && System.currentTimeMillis() >= Beeper.echoUntil && am.isMusicActive
             }
             val ms = System.currentTimeMillis() - t
-            Ear.log("구글 시간: 준비 ${GoogleStt.ready} · 소리 ${GoogleStt.level} · 삑 ${GoogleStt.beeped} · " +
+            Ear.log("구글 시간: 준비 ${GoogleStt.ready} · 소리 ${GoogleStt.level} · 안내 ${GoogleStt.beeped} · " +
                 "말 시작 ${GoogleStt.begin} · 말 끝 ${GoogleStt.end} · 결과 ${ms}ms")
             val retryable = r.error == null || r.error == SpeechRecognizer.ERROR_NO_MATCH ||
                 r.error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
@@ -359,7 +359,11 @@ class EarService : Service() {
                 if (e != GoogleStt.ABORTED) Beeper.play(Beeper.FAIL)
                 return
             }
-            val texts = r.texts.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+            val rawTexts = r.texts.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+            // Our own prompt can echo into the transcript as a leading "말씀하세요": cut it off.
+            val promptEcho = Regex("^\\s*말\\s*씀\\s*하\\s*세\\s*요[~!.,\\s]*")
+            val texts = rawTexts.map { it.replace(promptEcho, "").trim() }.filter { it.isNotEmpty() }.distinct()
+            if (texts.size != rawTexts.size) Ear.log("안내멘트 에코 제거: $rawTexts")
             if (texts.isEmpty()) {
                 Ear.log("구글 받아쓰기 결과 없음 (${ms}ms)")
                 Beeper.play(Beeper.FAIL); return

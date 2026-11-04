@@ -18,8 +18,8 @@ android {
         applicationId = "com.dalmyo.museear"
         minSdk = 29
         targetSdk = 36
-        versionCode = 14
-        versionName = "0.4.1"
+        versionCode = 15
+        versionName = "0.5"
         // The Note 9 is arm64; leaving out the other ABIs keeps ONNX Runtime from tripling the APK.
         ndk { abiFilters += "arm64-v8a" }
     }

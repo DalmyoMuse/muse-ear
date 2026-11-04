@@ -33,7 +33,8 @@ object GoogleStt {
      * Google's own start/end sounds (notification stream) are muted meanwhile, so only our beep is heard.
      */
     fun listen(ctx: Context, timeoutMs: Long = 15_000, minMs: Long = 400, beepFloorMs: Long = 2_000,
-               onListening: () -> Unit = {}, abort: () -> Boolean = { false }): Result {
+               onListening: () -> Unit = {}, onPrompt: () -> Unit = {}, promptDelayMs: Long = 350,
+               abort: () -> Boolean = { false }): Result {
         val main = Handler(Looper.getMainLooper())
         val done = CountDownLatch(1)
         var out = Result(emptyList(), null, SpeechRecognizer.ERROR_SPEECH_TIMEOUT)
@@ -47,6 +48,9 @@ object GoogleStt {
             onListening()
         }
         quiet(ctx, true)
+        // The spoken prompt starts a beat after the recognizer and ends around the old 2 s beep
+        // floor, so it fills the silence without moving the speaker's proven rhythm (0.5).
+        main.postDelayed({ if (done.count > 0) onPrompt() }, promptDelayMs)
         // Some recognizers send a late onError after onResults; only the first answer counts.
         fun finish(r: Result) { if (done.count > 0) { out = r; done.countDown() } }
         main.post {

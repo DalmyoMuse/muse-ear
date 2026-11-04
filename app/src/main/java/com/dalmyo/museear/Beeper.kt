@@ -33,6 +33,9 @@ object Beeper {
     @Volatile var echoUntil = 0L
         private set
 
+    /** Another of our own sounds (the spoken prompt) claims the echo window too. */
+    fun claimEcho(durationMs: Long) { echoUntil = System.currentTimeMillis() + durationMs + 600 }
+
     /** Plays without blocking the caller (the mic loop must keep reading). */
     fun play(snd: ShortArray) = thread(name = "beep") {
         echoUntil = System.currentTimeMillis() + snd.size * 1000L / RATE + 600
