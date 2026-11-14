@@ -223,6 +223,20 @@ class EarService : Service() {
                         hit = emptyMap(); why = "quiet"
                     }
                 }
+                if (hit.isNotEmpty() && !manual && !busy) {
+                    // Absolute-energy gate: the relative silence gate above judges against the room floor,
+                    // so in a very quiet room a faint tonal blip (+13 dB over a -78 dB floor) passed it and
+                    // scored 0.86 (2026-11-14 21:23, nobody had called). A real call always leaves voice
+                    // energy in the buffer itself: over the 21 hits of 11/8-11/14 the false ones peaked at
+                    // chunk RMS 50, the real ones at 77+. Veto a hit whose buffer is near-silent.
+                    val peakRms = ring.takeLast(CAPTURE_CHUNKS).maxOf { rmsOf(it) }
+                    if (peakRms < MIN_HIT_RMS) {
+                        val best = hit.maxBy { it.value }
+                        Ear.log("호출어 무시(절대 무음) ${best.key} (%.2f), 버퍼 최대 RMS %.0f (기준 %.0f)".format(best.value, peakRms, MIN_HIT_RMS))
+                        engine.reset()
+                        hit = emptyMap(); why = "silent"
+                    }
+                }
                 // Hold: a real "하이 클리오" stays over the threshold for 5–7 chunks; TV, music and near-words
                 // like "가즈아" flicked over it for 1–2. Wait until the score has held for s.hold chunks.
                 if (hit.isNotEmpty() && !manual && !busy) {
@@ -445,12 +459,19 @@ class EarService : Service() {
         private const val WARMUP_MS = 2_500L
         private const val SPEAKER_TAIL_MS = 800L   // after other playback stops, the room still rings briefly
         private const val CAPTURE_CHUNKS = 38       // 38 × 80 ms ≈ 3 s before a wake hit, for the capture mode
+        private const val MIN_HIT_RMS = 64.0              // absolute-energy wake gate: false hits peaked at chunk RMS 50, real calls at 77+ (21 hits, 2026-11-08..14)
         private const val VOICE_DB = 12.0                 // speech while recording: this far above the room (panel's value)
         private const val MIN_VOICE_DB = 5.0              // ...lowered down to this for a quiet call
         private const val GOOGLE_RETRY_MAX = 0            // field test: instant re-listens clipped first words; off
 
         fun start(ctx: Context) = ctx.startForegroundService(Intent(ctx, EarService::class.java))
         fun stop(ctx: Context) = ctx.startService(Intent(ctx, EarService::class.java).setAction(ACTION_STOP))
+
+        fun rmsOf(a: ShortArray): Double {
+            var sum = 0.0
+            for (v in a) sum += v.toDouble() * v
+            return sqrt(sum / a.size)
+        }
 
         fun dbfs(a: ShortArray): Double {
             var sum = 0.0
