@@ -26,14 +26,16 @@ phone). Muse Ear adds ears and a voice on top:
 
 ## Start with "Hey Jarvis"
 
-Two wake-word models are bundled:
+The release APK ships with one wake word:
 
 - `hey_jarvis` — the stock openWakeWord model. **Enabled by default; start here.**
   It is trained on English "hey jarvis", so say it in English.
-- `hi_clio` — a custom model trained for my Muse's name ("하이 클리오", Korean). It is
-  the worked example of the fun endgame: a wake word with your own Muse's name on it.
-  Train yours, drop the `.onnx` into `assets`, and it is picked up by name prefix.
-  Delete this one if it is not yours.
+
+The fun endgame is a wake word with your own Muse's name on it. The source tree
+carries ours (`hi_clio_v2.onnx`, trained on Korean pronunciation of "하이 클리오") —
+wake models are pronunciation-specific, so train yours on how *you* say the name,
+drop the `.onnx` into `assets`, and it is picked up by name prefix. The app skips
+model files that are not in assets, which is how the release APK leaves ours out.
 
 ## The gates are the real project
 
@@ -42,8 +44,9 @@ rhyme. Muse Ear layers checks after a hit, and most of its version history (see
 `CHANGES.md`) is a diary of false alarms:
 
 - the hit must hold for several consecutive audio chunks, not just spike once;
-- a short spoken prompt ("말씀하세요~" — a bundled Korean sample; replace it with your
-  own) covers the recognizer's start-up gap;
+- a short spoken prompt covers the recognizer's start-up gap (house builds use a
+  bundled Korean sample; to add yours, record one as `assets/prompt_malsseum.wav` —
+  without the file the app simply skips the prompt);
 - a **relative silence gate**: the room right before the wake word must be quieter than
   the call itself;
 - an **absolute energy veto** (0.7): if the audio right before the wake word is

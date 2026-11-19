@@ -117,7 +117,10 @@ class WakeWord private constructor(
             // XNNPACK was tried (2026-10-14): same scores, no speed-up on the Note 9, so plain CPU.
             val opts = OrtSession.SessionOptions().apply { setIntraOpNumThreads(1) }
             fun load(f: String) = env.createSession(ctx.assets.open(f).use { it.readBytes() }, opts)
-            return WakeWord(env, load("melspectrogram.onnx"), load("embedding_model.onnx"), files.associate { it.removeSuffix(".onnx") to load(it) })
+            // A wake file that is not in assets is skipped, so a build can leave a model out:
+            // the public build ships hey_jarvis only, while house builds keep our own model.
+            val present = files.filter { f -> try { ctx.assets.open(f).close(); true } catch (e: Exception) { false } }
+            return WakeWord(env, load("melspectrogram.onnx"), load("embedding_model.onnx"), present.associate { it.removeSuffix(".onnx") to load(it) })
         }
     }
 }
