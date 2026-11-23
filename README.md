@@ -9,7 +9,7 @@ room — and is shared as a starting point, not a finished product.
 ## How it fits together
 
 The phone is a Muse Gadget first (the bridge app + Termux setup from
-`phone-as-muse-gadget`, with the companion bridge from `muse-bridge` running on the
+[phone-as-muse-gadget](https://github.com/DalmyoMuse/phone-as-muse-gadget), with the companion bridge from `muse-bridge` running on the
 phone). Muse Ear adds ears and a voice on top:
 
 - **Wake word, on-device**: openWakeWord (ONNX) listens locally — nothing is streamed
@@ -66,7 +66,7 @@ before first run.
 ## What you need
 
 - An Android phone, Android 10+ (it runs on a Note 9 and an XCover5 here)
-- The `phone-as-muse-gadget` setup on it, with the `muse-bridge` companion bridge
+- The [phone-as-muse-gadget](https://github.com/DalmyoMuse/phone-as-muse-gadget) setup on it (set this up first), with the `muse-bridge` companion bridge
 - A speech path for Muse's answers (the gadget TTS command your setup already uses)
 
 ## Known limitations
